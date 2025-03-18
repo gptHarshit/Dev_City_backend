@@ -3,15 +3,13 @@ const connectDB = require("./config/database");
 const app = express();
 const User = require("./models/user")
 
-app.post("/signup" , async (req,res) => {
-    const userObj = {
-        firstName : "Harshit",
-        lastName : "Gupta",
-        emailId : "harshitgpt21@gmail.com",
-        password : "harshit@123"
-    }
+// added a middleware to convert ka client side data from json to javascript obj
+app.use(express.json());
 
-    const user = new User(userObj);
+app.post("/signup" , async (req,res) => {
+
+    const user = new User(req.body)
+      
     try {
         await user.save();
         res.send("User added successfully");
