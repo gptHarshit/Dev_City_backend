@@ -2,6 +2,8 @@ const express = require("express");
 const connectDB = require("./config/database");
 const app = express();
 const User = require("./models/user")
+const {ValidateSignUpData} = require("./utlis/validation")
+const bcrypt = require("bcrypt");
 
 // added a middleware to convert ka client side data from json to javascript obj
 app.use(express.json());
@@ -32,14 +34,29 @@ app.get("/user" , async (req,res) => {
  * schema banaya hai us Model(User) ka instance create kr denge or hmne DB me save kr denge ashe hamare db me ek naya user add ho jayega 
  */
 app.post("/signup" , async (req,res) => {
-    const user = new User(req.body)
+ 
+    console.log(req.body);
+
     try {
+        // validating the data
+       ValidateSignUpData(req); 
+       
+       // Encrypting the password: 
+       const { firstName ,lastName , emailId , password} = req.body
+
+       const passwordHash =  await bcrypt.hash(password,10);
+       console.log(passwordHash);
+
+        // creating a new instance of the user model
+       const user = new User({
+                firstName , lastName , emailId ,password : passwordHash
+       });
+
         await user.save();
         res.send("User added successfully");
     } catch (err) {
-        res.status(400).send("ERROR saving the user:" + err.message);
+        res.status(400).send("ERROR : " + err.message);
     }
-    
 });
 
 // getting all the users that are present in the database , for maintaining feeds in UI
@@ -51,6 +68,52 @@ app.get("/feed" , async (req,res) => {
     } catch (err) {
         res.status(400).send("ERROR saving the user:" + err.message);
     }
+})
+
+
+// this api delete the data of the user , we are passig the id of the user 
+app.delete("/user" , async (req , res) => {
+    const userId = req.body.userId;
+    console.log(userId);
+    try {
+        const user =  await User.findByIdAndDelete(userId);
+        res.send("deleted Successfully")
+    } catch (err) {
+        res.status(400).send("ERROR saving the user:" + err.message);
+    }
+})
+
+/**
+ * here by using the patch we are udating the use details also req gives the id of the user ehich we have to update 
+ * ans req.boy give the content that hqas to be updated in the DB if we console log data  we will get same data that we are trying to update 
+ */
+
+app.patch("/user/:userId" , async (req,res) => {
+    const userId = req.params?.userId;
+    const data = req.body;
+  
+    try {
+        ALLOWED_UPDATES = [ "firstname" , "lastName" , "skills" ,'age' , "gender"];
+
+        const isUpdateAllowed = Object.keys(data).every((k) => ALLOWED_UPDATES.includes(k));
+    
+        if(!isUpdateAllowed){
+            throw new Error("Updated is not allowed");
+        }
+        
+        if(data?.skills.length > 10) {
+            throw new Error("Skills cannot be greater then 8");
+        }
+
+        const user = await User.findByIdAndUpdate({_id : userId} , data,  {
+            returnDocument : "after",
+            runValidators : true,
+        });
+        res.send("User data Updated successfully");
+    } catch (err) {
+        res.status(400).send("ERROR saving the user:" + err.message);
+    }
+  
 })
 
 connectDB()
