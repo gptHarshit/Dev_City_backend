@@ -4,9 +4,64 @@ const app = express();
 const User = require("./models/user")
 const {ValidateSignUpData} = require("./utlis/validation")
 const bcrypt = require("bcrypt");
+const validator = require('validator');
+const cookieParser = require("cookie-parser")
+const jwt = require("jsonwebtoken");
 
 // added a middleware to convert ka client side data from json to javascript obj
 app.use(express.json());
+app.use(cookieParser());
+
+// a login of the email and password is done also encryption of the password and checking that user is present or not in db is done here
+app.post("/login" , async (req,res) => {
+       try {
+        const {emailId , password} = req.body;
+        const user = await User.findOne({emailId: emailId});
+        if(!user) {
+            throw new Error("Invalid credential");
+        }
+        const isPassworValid = await bcrypt.compare( password , user.password);
+        if(isPassworValid) {
+            // Creating the JWT Tokens ->
+            const token = await jwt.sign({_id : user._id} , "DEV@TINDER$790");
+            // console.log(token);
+            // Add the token with cookies nad send the response back to the token ->  
+            res.cookie("token" , token);
+            res.send("user login successfull");
+        } else {
+            throw new Error("Invalid credential");
+        }
+    } catch (err) {
+        res.status(400).send("ERROR : " + err.message);
+    }
+});
+
+
+app.get("/profile" , async (req,res) => {
+
+ try {  const cookies = req.cookies;
+    const {token} = cookies;
+
+    if(!token) {
+        throw new Error("Invalid Token");
+    }
+    // console.log(token);
+    //validate the token
+
+    const decodedMessage = await jwt.verify(token , "DEV@TINDER$790")
+    const {_id} = decodedMessage;
+    // console.log("this is the LogedIn user : " + _id);
+    const user  = await User.findById(_id);
+    if(!user) {
+        throw new Error("Please login again");
+    }
+    // console.log(user);
+
+    res.send(user);
+    } catch (err) {
+        res.status(400).send("ERROR : " + err.message);
+        }
+})
 
 /**
  * yaha pr get api bana rhe hai , agr samne se kisi user ne email daal diya to vo email req me aayega vaha se hm us email ko nikal lenge
