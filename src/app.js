@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const validator = require('validator');
 const cookieParser = require("cookie-parser")
 const jwt = require("jsonwebtoken");
+const { userAuth } = require("./middlewares/auth");
 
 // added a middleware to convert ka client side data from json to javascript obj
 app.use(express.json());
@@ -23,7 +24,7 @@ app.post("/login" , async (req,res) => {
         const isPassworValid = await bcrypt.compare( password , user.password);
         if(isPassworValid) {
             // Creating the JWT Tokens ->
-            const token = await jwt.sign({_id : user._id} , "DEV@TINDER$790");
+            const token = await jwt.sign({_id : user._id} , "DEV@TINDER$790",{expiresIn: "1d"});
             // console.log(token);
             // Add the token with cookies nad send the response back to the token ->  
             res.cookie("token" , token);
@@ -36,58 +37,16 @@ app.post("/login" , async (req,res) => {
     }
 });
 
+app.get("/profile" ,userAuth, async (req,res) => {
 
-app.get("/profile" , async (req,res) => {
-
- try {  const cookies = req.cookies;
-    const {token} = cookies;
-
-    if(!token) {
-        throw new Error("Invalid Token");
-    }
-    // console.log(token);
-    //validate the token
-
-    const decodedMessage = await jwt.verify(token , "DEV@TINDER$790")
-    const {_id} = decodedMessage;
-    // console.log("this is the LogedIn user : " + _id);
-    const user  = await User.findById(_id);
-    if(!user) {
-        throw new Error("Please login again");
-    }
-    // console.log(user);
-
+ try { 
+    const user = req.user;
     res.send(user);
     } catch (err) {
         res.status(400).send("ERROR : " + err.message);
         }
-})
+});
 
-/**
- * yaha pr get api bana rhe hai , agr samne se kisi user ne email daal diya to vo email req me aayega vaha se hm us email ko nikal lenge
- *     const userEmail = req.body.emailId;   jo user ne dala tha fir hm User.find methos ka use krke apne DB me dekhenge ki kya user present hai 
- * or us user ki detail send kr denge 
- */
-app.get("/user" , async (req,res) => {
-    const userEmail = req.body.emailId;
-    console.log(userEmail);
-    try {
-        const users = await User.findOne({emailId : userEmail});
-        if(users.length === 0){
-            res.status(404).send("User Not Found");
-        } else {
-            res.send(users);
-        }
-    } catch (err) {
-        res.status(400).send("Something went wrong");
-    }
-})
-
-/**
- * yaha jb ek new user aayega or vo signup karega to apna data dalega signup page me or fir vaha se vo req me aayega
- * req ke badha obj hai isliye hm req.body krke user ne jo data dala hai vo hme mil jayega usi data ko use krke jo hme 
- * schema banaya hai us Model(User) ka instance create kr denge or hmne DB me save kr denge ashe hamare db me ek naya user add ho jayega 
- */
 app.post("/signup" , async (req,res) => {
  
     console.log(req.body);
@@ -114,61 +73,11 @@ app.post("/signup" , async (req,res) => {
     }
 });
 
-// getting all the users that are present in the database , for maintaining feeds in UI
-app.get("/feed" , async (req,res) => {
-    try {
-        const users = await User.find({});
-        res.send(users);
+app.post("/sendConnectionRequest", userAuth, (req,res) => {
+        const user = req.user;
+        console.log("Connection Request");
 
-    } catch (err) {
-        res.status(400).send("ERROR saving the user:" + err.message);
-    }
-})
-
-
-// this api delete the data of the user , we are passig the id of the user 
-app.delete("/user" , async (req , res) => {
-    const userId = req.body.userId;
-    console.log(userId);
-    try {
-        const user =  await User.findByIdAndDelete(userId);
-        res.send("deleted Successfully")
-    } catch (err) {
-        res.status(400).send("ERROR saving the user:" + err.message);
-    }
-})
-
-/**
- * here by using the patch we are udating the use details also req gives the id of the user ehich we have to update 
- * ans req.boy give the content that hqas to be updated in the DB if we console log data  we will get same data that we are trying to update 
- */
-
-app.patch("/user/:userId" , async (req,res) => {
-    const userId = req.params?.userId;
-    const data = req.body;
-  
-    try {
-        ALLOWED_UPDATES = [ "firstname" , "lastName" , "skills" ,'age' , "gender"];
-
-        const isUpdateAllowed = Object.keys(data).every((k) => ALLOWED_UPDATES.includes(k));
-    
-        if(!isUpdateAllowed){
-            throw new Error("Updated is not allowed");
-        }
-        
-        if(data?.skills.length > 10) {
-            throw new Error("Skills cannot be greater then 8");
-        }
-
-        const user = await User.findByIdAndUpdate({_id : userId} , data,  {
-            returnDocument : "after",
-            runValidators : true,
-        });
-        res.send("User data Updated successfully");
-    } catch (err) {
-        res.status(400).send("ERROR saving the user:" + err.message);
-    }
-  
+        res.send(user.firstName + " is Sending you the conection request");
 })
 
 connectDB()
@@ -182,3 +91,73 @@ connectDB()
 })
 
 
+// app.get("/user" , async (req,res) => {
+//     const userEmail = req.body.emailId;
+//     console.log(userEmail);
+//     try {
+//         const users = await User.findOne({emailId : userEmail});
+//         if(users.length === 0){
+//             res.status(404).send("User Not Found");
+//         } else {
+//             res.send(users);
+//         }
+//     } catch (err) {
+//         res.status(400).send("Something went wrong");
+//     }
+// })
+// // getting all the users that are present in the database , for maintaining feeds in UI
+// app.get("/feed" , async (req,res) => {
+//     try {
+//         const users = await User.find({});
+//         res.send(users);
+
+//     } catch (err) {
+//         res.status(400).send("ERROR saving the user:" + err.message);
+//     }
+// })
+
+
+// // this api delete the data of the user , we are passig the id of the user 
+// app.delete("/user" , async (req , res) => {
+//     const userId = req.body.userId;
+//     console.log(userId);
+//     try {
+//         const user =  await User.findByIdAndDelete(userId);
+//         res.send("deleted Successfully")
+//     } catch (err) {
+//         res.status(400).send("ERROR saving the user:" + err.message);
+//     }
+// })
+
+// /**
+//  * here by using the patch we are udating the use details also req gives the id of the user ehich we have to update 
+//  * ans req.boy give the content that hqas to be updated in the DB if we console log data  we will get same data that we are trying to update 
+//  */
+
+// app.patch("/user/:userId" , async (req,res) => {
+//     const userId = req.params?.userId;
+//     const data = req.body;
+  
+//     try {
+//         ALLOWED_UPDATES = [ "firstname" , "lastName" , "skills" ,'age' , "gender"];
+
+//         const isUpdateAllowed = Object.keys(data).every((k) => ALLOWED_UPDATES.includes(k));
+    
+//         if(!isUpdateAllowed){
+//             throw new Error("Updated is not allowed");
+//         }
+        
+//         if(data?.skills.length > 10) {
+//             throw new Error("Skills cannot be greater then 8");
+//         }
+
+//         const user = await User.findByIdAndUpdate({_id : userId} , data,  {
+//             returnDocument : "after",
+//             runValidators : true,
+//         });
+//         res.send("User data Updated successfully");
+//     } catch (err) {
+//         res.status(400).send("ERROR saving the user:" + err.message);
+//     }
+  
+// })
