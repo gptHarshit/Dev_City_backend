@@ -15,6 +15,23 @@ const ValidateSignUpData = (req) => {
     }
 }
 
+const validateUpdatedPassword = (req) => {
+    const { password } = req.body;
+    if(!validator.isStrongPassword(password)) {
+        throw new Error("Enter the strong password");
+    }
+}
+
+const validateEditProfileData = (req) => {
+    console.log(" OBJECT IN VALIDATION  " + req.body);
+    const allowedEditFields = ["firstName", "lastName","emailId", "age" , "skills" , "photoUrl" , "about" ,"gender"];
+    const isEditAllowed = Object.keys(req.body).every((field) => allowedEditFields.includes(field));
+    console.log("validated");
+    return isEditAllowed;
+}
+
 module.exports = {
     ValidateSignUpData,
+    validateEditProfileData,
+    validateUpdatedPassword,
 }
